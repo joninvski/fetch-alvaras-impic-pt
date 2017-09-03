@@ -20,6 +20,20 @@
                       }
             })))
 
+(defn fetch-single-company [link-id]
+  (:body (http/post
+           "http://www.impic.pt/impic/ajax/call/impic_api/consultar/ajax/43"
+           {:form-params {"id_object" "17"
+                          "id_type" "8"
+                          "informacao" "true"
+                          "info" "NUMERO_LICENCA"
+                          "value" "2"
+                          "nl" (str link-id)}
+            :headers {"Accept-Encoding" "deflate, gzip"
+                      "Accept" "*/*"
+                      "Content-Type" "application/x-www-form-urlencoded"
+                      }})))
+
 (def m-fetch-page
   (memoize fetch-page))
 
@@ -32,22 +46,33 @@
         accum
         (recur (inc page) (conj accum page-html))))))
 
-(defn parse-class 
+(def max-class 0)
+
+(defn parse-line [line]
+  (def l line)
+  (let [cell (into [] (.select line "td"))
+        link-id (.get
+                  (.attributes
+                    (first (.getElementsByTag (nth cell 0) "a"))) "data-value")]
+    {:id (.text (nth cell 0))
+     :phone (second (clojure.string/split (.text (-> (Jsoup/parseBodyFragment (fetch-single-company link-id))
+                                                     (.select "body > div > div > div:nth-child(10)")))
+                                          #" "))
+     :email (second (clojure.string/split (.text (-> (Jsoup/parseBodyFragment (fetch-single-company link-id))
+                                                     (.select "body > div > div > div:nth-child(12)")))
+                                          #" "))
+     :nif (.text (nth cell 1))
+     :nome (.text (nth cell 2))
+     :morada (.text (nth cell 3))
+     :classe max-class}))
+
+(defn parse-class
   [class-str]
   (let [html (str "<table>" (clojure.string/join class-str) "</table>")]
     (def c html)
    (let [lines (-> (Jsoup/parseBodyFragment html)
                   (.select  "body > table > tbody > tr"))]
      (map parse-line lines))))
-
-(defn parse-line [line]
-  (def l line)
-  (let [cell (.select line "td")]
-    {:id (.text (nth cell 0))
-     :nif (.text (nth cell 1))
-     :nome (.text (nth cell 2))
-     :morada (.text (nth cell 3))
-     :classe max-class}))
 
 (defn get-class [class-value]
   (def max-class class-value)
@@ -57,7 +82,7 @@
   ))
 
 (defn write-csv [path row-data]
-  (let [columns [:id :nif :nome :morada :classe]
+  (let [columns [:id :nif :nome :morada :classe :phone :email]
         headers (map name columns)
         rows (mapv #(mapv % columns) row-data)]
     (with-open [file (io/writer path)]
