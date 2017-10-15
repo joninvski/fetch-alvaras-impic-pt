@@ -27,7 +27,7 @@
                           "id_type" "8"
                           "informacao" "true"
                           "info" "NUMERO_LICENCA"
-                          "value" "2"
+                          "value" (str link-id)
                           "nl" (str link-id)}
             :headers {"Accept-Encoding" "deflate, gzip"
                       "Accept" "*/*"
@@ -88,4 +88,4 @@
     (with-open [file (io/writer path)]
       (csv/write-csv file (cons headers rows)))))
 
-(doall (map #(write-csv (str "resources/results_" % ".csv") (get-class %)) (range 1 10)))
+(doall (map #(write-csv (str "resources/results_" % ".csv") (get-class %)) (range 1 9)))
